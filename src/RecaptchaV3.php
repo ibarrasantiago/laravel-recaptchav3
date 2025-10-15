@@ -110,43 +110,34 @@ class RecaptchaV3
         return '<script src="' . $this->origin . '/api.js?hl=' . $this->locale . '&render=' . $this->sitekey . '"></script>';
     }
 
-
     /**
-     * Create the field for recaptcha response, if the $requestOnSubmit is false the token is requested on the page
-     * load can cause error if the user take more than 2 minutes to submit the form because the token
-     * have a 2minutes timeout, the other option its a better approach
      * @param $action
-     * @param $name
-     * @param $requestOnSubmit boolean if true the script will only call the api on form submit
-     * @param $formId the form id is required if the $requestOnSubmit is true
-     * @param $functionName for default the value is onClickRecaptcha and the onclick="onClickRecaptcha(event)" shoud be added on submit button
-     * @return string
+     * @param string $name
      */
-    public function field($action, $name = 'g-recaptcha-response', $requestOnSubmit=false, $formId=null, $functionName="onClickRecaptcha")
+    public function field($action, $name = 'g-recaptcha-response')
     {
         $fieldId = uniqid($name . '-', false);
         $html = '<input type="hidden" name="' . $name . '" id="' . $fieldId . '">';
-        if ($requestOnSubmit == false){
-            $html .= "<script>
-			  grecaptcha.ready(function() {
-				  grecaptcha.execute('" . $this->sitekey . "', {action: '" . $action . "'}).then(function(token) {
-					 document.getElementById('" . $fieldId . "').value = token;
-				  });
-			  });
-			  </script>";
-        }else{
-            $html .= "<script>
-			function " . $functionName . "(e) {
-				e.preventDefault();
-				grecaptcha.ready(function() {
-				  grecaptcha.execute('" . $this->sitekey . "', {action: '" . $action . "'}).then(function(token) {
-					 document.getElementById('" . $fieldId . "').value = token;
-					 document.getElementById('" . $formId . "').submit();
-				  });
-				});
-			}
-		</script>";
-        }
+        $html .= "<script>
+        (function() {
+            let field = document.getElementById('" . $fieldId . "');
+            let form = field.form;
+            form.addEventListener('submit', function(e) {
+                // If token already present, allow submission
+                if (field.value) return true;
+
+                // Otherwise, prevent and generate new token
+                e.preventDefault();
+
+                grecaptcha.ready(function() {
+                    grecaptcha.execute('" . $this->sitekey . "', {action: '" . $action . "'}).then(function(token) {
+                        field.value = token;
+                        form.submit(); // submit manually once token is ready
+                    });
+                });
+            });
+        })();
+    </script>";
         return $html;
     }
 
